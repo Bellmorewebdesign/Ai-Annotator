@@ -1,0 +1,13 @@
+# Runtime dependencies. All are permissively licensed (see docs/architecture.md#licensing).
+anthropic>=2.3,<3
+fastapi>=0.115
+uvicorn[standard]>=0.30
+python-multipart>=0.0.9
+pydantic>=2.7
+pydantic-settings>=2.3
+pypdfium2>=4.30
+pikepdf>=9.0
+reportlab>=4.2
+pillow>=10.4
+python-docx>=1.1
+rapidfuzz>=3.9
