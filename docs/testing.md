@@ -38,6 +38,20 @@ Environment: Linux, Python 3.13, Tesseract 5.3.4, LibreOffice 24.2, Node 22, Chr
 | Frontend lint, typecheck, production build | | pass |
 | Browser end-to-end (`frontend/e2e/smoke.mjs`, production build) | 9 checks | pass |
 
+### Continuous integration
+
+GitHub Actions run 4 (commit `e0e8a93`) passed all four jobs: backend tests on Ubuntu (Tesseract and
+LibreOffice installed, nothing skipped), backend tests on Windows (OCR and LibreOffice tests skipped
+because those tools are not installed on the runner), frontend lint/typecheck/build, and the browser
+end-to-end test against a production build.
+
+The first CI runs were valuable: different fonts on the runners exposed a real reading-order bug (the
+short second line of a wrapped full-width title was filed into the left column), now fixed and covered by
+a test whose title always wraps. They also showed that PDFium substitutes different system fonts for
+non-embedded Times on Windows, so glyph-box edges can differ by about 1 pt between platforms; accuracy
+tests therefore assert "covers the target words and does not reach the neighbouring words" rather than a
+fixed edge tolerance.
+
 Performance: a 50-page two-column document is extracted in ~1.6 s, indexed in 0.2 s, and 150 annotations
 are matched, rendered and verified in ~1 s. The prompt for such a document is ~34k tokens (single AI pass).
 
