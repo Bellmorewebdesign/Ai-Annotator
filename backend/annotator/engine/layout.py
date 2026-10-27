@@ -230,6 +230,9 @@ def _reading_order(lines: list[Line], gutters: list[tuple[float, float]]) -> lis
         return _column_of(ln, gutters)
 
     ordered = sorted(lines, key=lambda ln: (ln.cy, ln.fx0))
+    cols: dict[int, int | None] = {id(ln): (col_of(ln) if gutters else 0) for ln in ordered}
+    if gutters:
+        _attach_spanning_continuations(ordered, cols)
     result: list[Line] = []
     band: list[Line] = []
     band_no = 0
@@ -248,7 +251,7 @@ def _reading_order(lines: list[Line], gutters: list[tuple[float, float]]) -> lis
         band_no += 1
 
     for ln in ordered:
-        col = col_of(ln) if gutters else 0
+        col = cols[id(ln)]
         if col is None:
             flush()
             ln.column = -1
@@ -260,6 +263,37 @@ def _reading_order(lines: list[Line], gutters: list[tuple[float, float]]) -> lis
             band.append(ln)
     flush()
     return result
+
+
+def _attach_spanning_continuations(ordered: list[Line], cols: dict[int, int | None]) -> None:
+    """Keep the short last line of a wrapped full-width title or abstract with it.
+
+    Such a line is narrow enough to sit inside one column, but it continues the
+    full-width line directly above it: same size, aligned (left or centred), tight
+    line spacing, and no line from another column beside it.
+    """
+    for i, ln in enumerate(ordered):
+        if cols[id(ln)] is None:
+            continue
+        above = next((p for p in reversed(ordered[:i]) if p.fy1 <= ln.fy0 + 0.5 * ln.height), None)
+        if above is None or cols[id(above)] is not None:
+            continue
+        em = max(ln.size, above.size, 1.0)
+        if abs(ln.size - above.size) > 0.15 * em:
+            continue
+        if not (-0.3 * em <= ln.fy0 - above.fy1 <= 0.8 * em):
+            continue
+        aligned_left = abs(ln.fx0 - above.fx0) <= 1.0 * em
+        centred = abs((ln.fx0 + ln.fx1) / 2 - (above.fx0 + above.fx1) / 2) <= 1.0 * em
+        if not (aligned_left or centred):
+            continue
+        beside = any(
+            other is not ln and cols[id(other)] is not None and cols[id(other)] != cols[id(ln)]
+            and _v_overlap(other.fy0, other.fy1, ln.fy0, ln.fy1) > 0
+            for other in ordered
+        )
+        if not beside:
+            cols[id(ln)] = None
 
 
 def _rows_in_order(lines: list[Line]) -> list[Line]:

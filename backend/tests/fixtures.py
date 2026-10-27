@@ -272,6 +272,10 @@ def existing_annotation_pdf(path: Path) -> Truth:
     return truth
 
 
+# Long enough to wrap onto a second, shorter line on every platform.
+ACADEMIC_TITLE = ("Retrieval Practice and Long-Term Retention in Secondary Classrooms: "
+                  "A Semester-Long Field Experiment")
+
 ACADEMIC_PARAGRAPHS = [
     "Introduction",
     "Decades of laboratory research show that retrieving information from memory strengthens later recall "
@@ -304,7 +308,7 @@ def academic_docx(path: Path) -> None:
     from docx.oxml.ns import qn
 
     d = docx.Document()
-    d.add_heading("Retrieval Practice and Long-Term Retention in Secondary Classrooms", level=1)
+    d.add_heading(ACADEMIC_TITLE, level=1)
     d.add_paragraph("Abstract. This study examines whether low-stakes retrieval practice improves long-term "
                     "retention compared with rereading, in a sample of 312 secondary students.")
     sec = d.add_section(WD_SECTION.CONTINUOUS)

@@ -8,7 +8,7 @@ import pikepdf
 import pytest
 from conftest import load
 from engine_helpers import CATS, changed_mask, fraction, user_box_to_pixels
-from fixtures import academic_docx, figure_table_pdf, scanned_pdf, simple_pdf
+from fixtures import ACADEMIC_TITLE, academic_docx, figure_table_pdf, scanned_pdf, simple_pdf
 from PIL import Image, ImageDraw, ImageFont
 
 from annotator.engine.annotate import RegionSelection, TextSelection, place_annotations, render_and_verify
@@ -206,8 +206,8 @@ def test_libreoffice_two_column_justified_document(tmp):
     res, dt = load(src)
     blocks = [b for p in res.doc.pages for b in p.blocks]
     headings = [b.text for b in blocks if b.role == "heading"]
-    assert headings[:3] == ["Retrieval Practice and Long-Term Retention in Secondary Classrooms",
-                            "Introduction", "Methods"]
+    # The wrapped title (full width, then a short second line) must stay one heading.
+    assert headings[:3] == [ACADEMIC_TITLE, "Introduction", "Methods"]
     order = [b.text.split()[0] for b in blocks]
     assert order.index("Methods") < order.index("Results") < order.index("Discussion")
 
