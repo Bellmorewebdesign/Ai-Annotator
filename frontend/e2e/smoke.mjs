@@ -29,7 +29,9 @@ try {
 
   await page.goto(base);
   await page.getByText("Upload a document").first().waitFor();
-  check(await page.getByText("Test mode").isVisible(), "test mode is clearly labelled");
+  // The notice appears once the health request returns, so wait for it rather than sampling.
+  await page.getByText("Test mode").first().waitFor({ timeout: 15_000 });
+  check(true, "test mode is clearly labelled");
 
   await page.setInputFiles('input[aria-label="Choose a document"]', doc);
   await page.getByText(/\d+ pages?/).first().waitFor();
@@ -53,6 +55,7 @@ try {
   check(body.includes(Buffer.from("/Highlight")), "download contains real highlight annotations");
 
   await page.getByRole("tab", { name: /Annotations/ }).click();
+  await page.locator("[role=tabpanel] li").first().waitFor();
   const items = await page.locator("[role=tabpanel] li").count();
   check(items > 0, `annotation list shows ${items} items`);
 
