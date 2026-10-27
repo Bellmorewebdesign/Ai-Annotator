@@ -49,14 +49,30 @@ docs/                spec, architecture, development plan, testing report
 ## Commands
 
 ```bash
+python scripts/setup.py               # one-time setup (venv, packages, .env)
+python dev.py                         # API :8000 + worker + web :3000
 # backend (from backend/)
 .venv/bin/python -m pytest            # Windows: .venv\Scripts\python -m pytest
 .venv/bin/ruff check annotator tests
 # frontend (from frontend/)
 npm run lint && npm run typecheck && npm run build
-# everything (from repo root)
-python dev.py
+npm run e2e -- <file.pdf>             # needs the stack running with ANNOTATOR_ENV=test ANNOTATOR_AI_PROVIDER=fake
 ```
+
+Frontend note: this is Next.js 16 with Cache Components enabled. Read `frontend/node_modules/next/dist/docs/`
+before using framework APIs; route params must be resolved inside `<Suspense>` (see `app/jobs/[id]/page.tsx`).
+pdfjs-dist is v6 (no `isEvalSupported`, `destroy()` lives on the loading task).
+
+## Key decisions (with reasons)
+
+- **PDFium (pypdfium2) for extraction, pikepdf for writing.** Both permissive; PyMuPDF is AGPL.
+- **Passage ids + verbatim quotes + skeleton matching** instead of model coordinates or offsets: robust to
+  ligatures, hyphenation and spacing while never drawing text the model invented.
+- **Comments in `/Contents`** of the highlight (universally supported) rather than separate sticky notes.
+- **SQLite + lease-based worker** for local durability; same semantics port to Postgres + queue later.
+- **Direct browser-to-API calls with CORS** (not Next rewrites) to avoid proxy body limits on 50 MB uploads.
+- **System font stack** (Segoe UI on Windows) so the UI needs no network fonts.
+- **Default model `claude-opus-5-5`**, configurable; analysis effort `high`, summary `medium`.
 
 ## Testing expectations
 

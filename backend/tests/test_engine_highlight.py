@@ -14,6 +14,7 @@ import pytest
 from conftest import load
 from engine_helpers import annotate, changed_mask, fraction, user_box_to_pixels
 from fixtures import (
+    Builder,
     existing_annotation_pdf,
     fonts_pdf,
     hyphen_pdf,
@@ -357,3 +358,34 @@ def _load_pages(path):
         pdf[0].get_textpage()
     finally:
         pdf.close()
+
+
+def test_footnotes_captions_and_numbered_headings(tmp):
+    from fixtures import figure_table_pdf
+
+    src, out = tmp / "two.pdf", tmp / "out.pdf"
+    two_column_pdf(src)
+    b = Builder(tmp / "num.pdf")
+    b.line(72, 720, "3.2 Measuring Recall", font="Times-Bold", size=13)
+    b.line(72, 700, "Recall was measured one week later with a free-response test.", size=11)
+    b.save()
+    res, dt = load(src)
+    placement, outcome = annotate(res.doc, dt, src, out, [
+        ("informed consent", block_containing(dt, "informed consent"), "highlight"),
+    ])
+    assert outcome.verified and placement.placed
+    assert dt.blocks[block_containing(dt, "informed consent")].role == "footnote"
+
+    fig = tmp / "fig.pdf"
+    figure_table_pdf(fig)
+    res2, dt2 = load(fig)
+    bid = block_containing(dt2, "Recall scores")
+    assert dt2.blocks[bid].role == "caption"
+    p2, o2 = annotate(res2.doc, dt2, fig, tmp / "o2.pdf", [("Recall scores by annotation strategy", bid, "highlight")])
+    assert o2.verified and p2.placed
+
+    res3, dt3 = load(tmp / "num.pdf")
+    hid = block_containing(dt3, "Measuring Recall")
+    assert dt3.blocks[hid].role == "heading"
+    p3, o3 = annotate(res3.doc, dt3, tmp / "num.pdf", tmp / "o3.pdf", [("3.2 Measuring Recall", hid, "highlight")])
+    assert o3.verified and p3.placed and p3.placed[0].text == "3.2 Measuring Recall"

@@ -130,17 +130,19 @@ SQLite (WAL mode) via the standard library. Job ids are 128-bit random URL-safe 
 stored under fixed internal names (`input/source.<ext>`), so user-supplied filenames never touch the
 filesystem; the sanitized original name is kept only for display.
 
-Key endpoints:
+Client-side, the browser checks type and size and counts PDF pages with pdf.js before uploading;
+the server repeats every check on the actual bytes.
+
+Key endpoints (OpenAPI docs at `/api/docs`):
 
 | Method | Path | Purpose |
 |---|---|---|
 | GET | `/api/health` | Capabilities (AI configured, OCR, DOCX conversion, limits) |
 | POST | `/api/jobs` | Multipart: `document`, optional `instructions_file`, `instructions`, `options` (JSON) |
 | GET | `/api/jobs/{id}` | Status, phase, progress, ETA, results |
-| GET | `/api/jobs/{id}/files/{kind}` | `annotated`, `summary-md`, `summary-pdf`, `original` |
+| GET | `/api/jobs/{id}/files/{kind}` | `annotated`, `summary-md`, `summary-pdf` (`?inline=true` for preview) |
 | DELETE | `/api/jobs/{id}` | Delete job and all files |
 | POST | `/api/categories/suggest` | Detect categories/colors from instructions and rubric |
-| POST | `/api/documents/inspect` | Validate a file and report type, size, page count |
 
 ### Scaling path
 
