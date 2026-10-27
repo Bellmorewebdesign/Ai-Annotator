@@ -159,16 +159,17 @@ def _split_ligature_boxes(items: list[tuple[Char, int, float, float]]) -> None:
                 break
         k = j - i
         if k > 1:
+            x0, y0, x1, y1 = c0.ux0, c0.uy0, c0.ux1, c0.uy1  # shared box, before any splitting
             for m in range(k):
                 c = items[i + m][0]
                 if theta in (0, 180):
-                    w = (c0.ux1 - c0.ux0) / k
+                    w = (x1 - x0) / k
                     pos = m if theta == 0 else k - 1 - m
-                    c.ux0, c.ux1 = c0.ux0 + pos * w, c0.ux0 + (pos + 1) * w
+                    c.ux0, c.ux1 = x0 + pos * w, x0 + (pos + 1) * w
                 else:
-                    h = (c0.uy1 - c0.uy0) / k
+                    h = (y1 - y0) / k
                     pos = m if theta == 90 else k - 1 - m
-                    c.uy0, c.uy1 = c0.uy0 + pos * h, c0.uy0 + (pos + 1) * h
+                    c.uy0, c.uy1 = y0 + pos * h, y0 + (pos + 1) * h
         i = j
 
 

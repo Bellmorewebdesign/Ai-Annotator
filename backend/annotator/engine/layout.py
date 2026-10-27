@@ -179,20 +179,55 @@ def _find_gutters(lines: list[Line], chars: list[Char]) -> list[tuple[float, flo
     return accepted
 
 
+def _column_of(ln: Line, gutters: list[tuple[float, float]]) -> int | None:
+    """Column index of a line, or None when it crosses a gutter (full-width line)."""
+    c = 0
+    for g0, g1 in gutters:
+        if ln.fx1 <= g0 + 1:
+            return c
+        if ln.fx0 >= g1 - 1:
+            c += 1
+            continue
+        return None
+    return c
+
+
+def _merge_rows(lines: list[Line], gutters: list[tuple[float, float]], chars: list[Char]) -> list[Line]:
+    """Join fragments of one visual line inside the same column, whatever the gap.
+
+    Justified text can stretch word gaps beyond the fragment gap limit; only a column
+    gutter, never gap width alone, may split a visual line.
+    """
+    if len(lines) < 2:
+        return lines
+    out: list[Line] = []
+    for ln in sorted(lines, key=lambda x: (x.cy, x.fx0)):
+        col = _column_of(ln, gutters) if gutters else 0
+        target = None
+        for other in reversed(out[-12:]):
+            ocol = _column_of(other, gutters) if gutters else 0
+            if col is not None and ocol is not None and col != ocol:
+                continue
+            if _v_overlap(other.fy0, other.fy1, ln.fy0, ln.fy1) >= 0.5 * min(other.height, ln.height) \
+                    and abs(other.size - ln.size) <= 0.25 * max(other.size, ln.size):
+                target = other
+                break
+        if target is None:
+            out.append(ln)
+            continue
+        target.chars = sorted(target.chars + ln.chars, key=lambda i: (chars[i].fx0, chars[i].fx1))
+        target.fx0, target.fx1 = min(target.fx0, ln.fx0), max(target.fx1, ln.fx1)
+        if ln.height > target.height:
+            target.fy0, target.fy1, target.size = ln.fy0, ln.fy1, ln.size
+    return out
+
+
 def _reading_order(lines: list[Line], gutters: list[tuple[float, float]]) -> list[Line]:
     if not lines:
         return []
 
     def col_of(ln: Line) -> int | None:
-        c = 0
-        for g0, g1 in gutters:
-            if ln.fx1 <= g0 + 1:
-                return c
-            if ln.fx0 >= g1 - 1:
-                c += 1
-                continue
-            return None  # crosses this gutter
-        return c
+        return _column_of(ln, gutters)
 
     ordered = sorted(lines, key=lambda ln: (ln.cy, ln.fx0))
     result: list[Line] = []
@@ -294,6 +329,7 @@ def analyze_page(page: PageLayout) -> None:
             for f in frags
         ]
         gutters = _find_gutters(lines, chars)
+        lines = _merge_rows(lines, gutters, chars)
         all_ordered.extend(_reading_order(lines, gutters))
 
     for i, ln in enumerate(all_ordered):

@@ -270,3 +270,56 @@ def existing_annotation_pdf(path: Path) -> Truth:
         page.obj.Annots = pikepdf.Array([note])
         pdf.save(path)
     return truth
+
+
+ACADEMIC_PARAGRAPHS = [
+    "Introduction",
+    "Decades of laboratory research show that retrieving information from memory strengthens later recall "
+    "more than restudying the same material. Classroom evidence, however, remains comparatively thin, and "
+    "teachers frequently report that quizzes consume instructional time without clear benefits.",
+    "We therefore conducted a semester-long field experiment. Students completed brief weekly quizzes on half "
+    "of the course units, while the remaining units were reviewed through guided rereading of summaries.",
+    "Methods",
+    "Participants were 312 students aged fourteen to sixteen. Each class was randomly assigned a counterbalanced "
+    "order of units, which ensured that every unit appeared in both conditions across the sample.",
+    "Results",
+    "Students recalled 64 percent of quizzed material compared with 47 percent of reread material, a difference "
+    "that was statistically significant and consistent across schools. The effect was largest for students "
+    "with lower prior achievement.",
+    "Discussion",
+    "These results suggest that retrieval practice is a practical and inexpensive intervention. Nevertheless, "
+    "the study has limitations: quizzes were not individually adapted, and the eight-week interval cannot speak "
+    "to retention over longer periods.",
+    "Counterarguments deserve attention. Some researchers argue that the testing effect reflects increased "
+    "exposure rather than retrieval itself; our design equated exposure time, which weakens that interpretation.",
+]
+
+
+def academic_docx(path: Path) -> None:
+    """A Word document with a full-width title/abstract, then two justified, hyphenated columns."""
+    import docx
+    from docx.enum.section import WD_SECTION
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+    from docx.oxml import OxmlElement
+    from docx.oxml.ns import qn
+
+    d = docx.Document()
+    d.add_heading("Retrieval Practice and Long-Term Retention in Secondary Classrooms", level=1)
+    d.add_paragraph("Abstract. This study examines whether low-stakes retrieval practice improves long-term "
+                    "retention compared with rereading, in a sample of 312 secondary students.")
+    sec = d.add_section(WD_SECTION.CONTINUOUS)
+    cols = sec._sectPr.xpath("./w:cols")
+    col = cols[0] if cols else OxmlElement("w:cols")
+    col.set(qn("w:num"), "2")
+    col.set(qn("w:space"), "360")
+    if not cols:
+        sec._sectPr.append(col)
+    hyph = OxmlElement("w:autoHyphenation")
+    hyph.set(qn("w:val"), "true")
+    d.settings.element.append(hyph)
+    for t in ACADEMIC_PARAGRAPHS:
+        if len(t) < 20:
+            d.add_heading(t, level=2)
+        else:
+            d.add_paragraph(t).alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+    d.save(str(path))

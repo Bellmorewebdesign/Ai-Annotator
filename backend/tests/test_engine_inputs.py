@@ -8,7 +8,7 @@ import pikepdf
 import pytest
 from conftest import load
 from engine_helpers import CATS, changed_mask, fraction, user_box_to_pixels
-from fixtures import figure_table_pdf, scanned_pdf, simple_pdf
+from fixtures import academic_docx, figure_table_pdf, scanned_pdf, simple_pdf
 from PIL import Image, ImageDraw, ImageFont
 
 from annotator.engine.annotate import RegionSelection, TextSelection, place_annotations, render_and_verify
@@ -193,3 +193,39 @@ def test_sanitize_filename_blocks_path_tricks():
 def test_text_to_pdf_rejects_empty_text(tmp):
     with pytest.raises(UnsupportedFile):
         text_to_pdf("   \n\n  ", tmp / "x.pdf")
+
+
+@pytest.mark.skipif(find_soffice() is None, reason="LibreOffice not installed")
+def test_libreoffice_two_column_justified_document(tmp):
+    """A real-world PDF producer: justified text, ligatures, hyphenation, two columns."""
+    from engine_helpers import annotate
+
+    src_docx, src = tmp / "paper.docx", tmp / "paper.pdf"
+    academic_docx(src_docx)
+    docx_to_pdf(src_docx, src, find_soffice())
+    res, dt = load(src)
+    blocks = [b for p in res.doc.pages for b in p.blocks]
+    headings = [b.text for b in blocks if b.role == "heading"]
+    assert headings[:3] == ["Retrieval Practice and Long-Term Retention in Secondary Classrooms",
+                            "Introduction", "Methods"]
+    order = [b.text.split()[0] for b in blocks]
+    assert order.index("Methods") < order.index("Results") < order.index("Discussion")
+
+    def bid(phrase):
+        return next(b for b, (s, e) in dt.block_spans.items() if phrase in dt.text[s:e])
+
+    items = [
+        ("Students recalled 64 percent of quizzed material compared with 47 percent of reread material",
+         bid("Students recalled"), "highlight"),
+        ("the study has limitations", bid("limitations"), "underline"),
+        ("our design equated exposure time", bid("Counterarguments"), "highlight"),
+    ]
+    placement, outcome = annotate(res.doc, dt, src, tmp / "out.pdf", items)
+    assert outcome.verified and not placement.rejected, placement.rejected
+    assert len(placement.specs[0].quads) >= 2  # wraps across lines in a narrow column
+    # Justified word gaps must not split a line: one continuous quad per line.
+    underline = next(s for s in placement.specs if s.kind == "underline")
+    assert len(underline.quads) == 1
+    for spec in placement.specs:
+        tops = [round(max(q[1::2]), 1) for q in spec.quads]
+        assert len(tops) == len(set(tops)), "more than one quad on the same line"
