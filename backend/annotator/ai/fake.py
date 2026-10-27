@@ -8,8 +8,10 @@ not a heuristic annotator and is never used outside the test environment.
 
 from __future__ import annotations
 
+import os
 import re
 import threading
+import time
 from typing import Any
 
 from .client import AIError, CallRecord, StructuredResult
@@ -36,6 +38,8 @@ class FakeClaude:
             if self.fail_times > 0:
                 self.fail_times -= 1
                 raise self.error
+        # Optional delay so end-to-end tests can observe progress mid-run (test mode only).
+        time.sleep(float(os.environ.get("ANNOTATOR_FAKE_DELAY_SECONDS", "0") or 0))
         text = "\n".join(b["text"] for b in blocks)
         if purpose.startswith("analysis"):
             data = self._analysis(text, schema)

@@ -119,7 +119,10 @@ def main() -> None:
     def handle(signum, frame):  # pragma: no cover - signal handling
         raise KeyboardInterrupt
 
+    signal.signal(signal.SIGINT, signal.default_int_handler)
     signal.signal(signal.SIGTERM, handle)
+    if hasattr(signal, "SIGBREAK"):  # Windows: dev.py stops processes with Ctrl+Break
+        signal.signal(signal.SIGBREAK, handle)
     try:
         worker.run_forever()
     except KeyboardInterrupt:
