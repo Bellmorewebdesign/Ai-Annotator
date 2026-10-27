@@ -223,9 +223,8 @@ def test_libreoffice_two_column_justified_document(tmp):
     placement, outcome = annotate(res.doc, dt, src, tmp / "out.pdf", items)
     assert outcome.verified and not placement.rejected, placement.rejected
     assert len(placement.specs[0].quads) >= 2  # wraps across lines in a narrow column
-    # Justified word gaps must not split a line: one continuous quad per line.
-    underline = next(s for s in placement.specs if s.kind == "underline")
-    assert len(underline.quads) == 1
+    # Justified word gaps must not split a line: at most one continuous quad per line.
+    # (How many lines a phrase spans depends on the fonts LibreOffice substitutes.)
     for spec in placement.specs:
         tops = [round(max(q[1::2]), 1) for q in spec.quads]
         assert len(tops) == len(set(tops)), "more than one quad on the same line"
