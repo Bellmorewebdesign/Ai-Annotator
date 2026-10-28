@@ -52,6 +52,12 @@ non-embedded standard fonts on different systems, so glyph-box edges can differ 
 tests therefore assert "covers the target words and does not reach the neighbouring words" rather than a
 fixed edge tolerance.
 
+GitHub Actions run 8 (commit `a577c6a`) passed every Linux job: backend tests on Python 3.11 and 3.12,
+frontend lint/typecheck/build, and the fresh-runner job that runs `./install.sh --yes`, `./start.sh --prod`
+and the browser test. That job caught a real setup bug the hand test missed: `scripts/setup.py` checked for
+optional tools using the system Python, which only worked where that Python happened to have Pillow
+installed. It now runs the check inside the project's virtual environment.
+
 ### Linux setup verification (Ubuntu 24.04)
 
 On a fresh `git clone`:
