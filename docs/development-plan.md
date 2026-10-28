@@ -13,8 +13,9 @@ This file is the running record of unfinished work and known issues. Keep it cur
 4. **Coordinate systems** (rotation, crop boxes, sideways text). Mitigated by the frame transform and
    rotated-page tests.
 5. **OCR quality.** Tesseract varies by scan quality; confidence is measured and surfaced.
-6. **Windows setup friction** (Tesseract, LibreOffice). Both are optional; the app reports what is
-   available through `/api/health` and the UI.
+6. **Linux setup friction** (old distro Node.js, Tesseract, LibreOffice). `install.sh` installs the
+   system packages, downloads a local Node.js when needed, and the app reports missing optional tools
+   through `/api/health` and the UI.
 7. **Cost of long documents.** Prompt caching between analysis and summary; planning pass + sections
    only for very long documents.
 
@@ -50,7 +51,8 @@ This file is the running record of unfinished work and known issues. Keep it cur
 - [x] Long-document planning pass and sections (tested with the scripted client)
 - [x] API cost reporting (per call and per job)
 - [x] Error recovery (leases, heartbeats, checkpoints, attempt limits)
-- [x] Windows setup documentation (not yet executed by hand on Windows; CI covers backend tests)
+- [x] Linux one-command install and start (`install.sh`, `start.sh`), verified on a fresh Ubuntu 24.04
+      clone and in CI; other distributions' package branches not yet run
 
 ## Known issues and gaps
 
@@ -68,6 +70,9 @@ This file is the running record of unfinished work and known issues. Keep it cur
 
 ## Next milestones (proposed)
 
+0. **First real-world test** (current step): live Claude API on real papers on the Linux servers.
+   No major changes until this is done.
+
 1. **Live API validation and an evaluation harness**: a labelled corpus of real papers with gold
    annotations to compare models, effort levels and prompts on selection quality and cost.
 2. Expanded-margin mode with FreeText notes laid out beside the original page (non-overlapping layout).
@@ -76,3 +81,6 @@ This file is the running record of unfinished work and known issues. Keep it cur
 4. Searchable OCR output (invisible text layer) so scanned outputs are selectable.
 5. Accounts, per-user job lists and authorization on job URLs.
 6. Cloud deployment: object storage, Postgres, queue-backed workers, presigned uploads for large files.
+7. Server operation: systemd units for API, worker and website; log rotation; backups of `data/`.
+8. Optional local AI on the GPU servers (see architecture, "Local AI and GPUs"): GPU OCR first, then a
+   local model provider evaluated against the Claude baseline. Always optional; CPU-only must keep working.

@@ -48,16 +48,19 @@ docs/                spec, architecture, development plan, testing report
 
 ## Commands
 
+Target platform: **Linux** (Ubuntu/Debian first; Fedora, Arch, openSUSE via install.sh). No GPU required.
+
 ```bash
-python scripts/setup.py               # one-time setup (venv, packages, .env)
-python dev.py                         # API :8000 + worker + web :3000
-# backend (from backend/)
-.venv/bin/python -m pytest            # Windows: .venv\Scripts\python -m pytest
-.venv/bin/ruff check annotator tests
-# frontend (from frontend/)
-npm run lint && npm run typecheck && npm run build
-npm run e2e -- <file.pdf>             # needs the stack running with ANNOTATOR_ENV=test ANNOTATOR_AI_PROVIDER=fake
+./install.sh                          # one-time setup: system packages, local Node if needed, venv, .env
+./start.sh                            # API :8000 + worker + web :3000 (--prod, --lan available)
+make test                             # backend tests (backend/.venv/bin/python -m pytest)
+make lint                             # ruff + eslint + tsc
+cd frontend && npm run build
+cd frontend && npm run e2e -- <file.pdf>   # needs the stack running with ANNOTATOR_ENV=test ANNOTATOR_AI_PROVIDER=fake
 ```
+
+If install.sh downloaded Node.js, it lives in `.tools/node/bin` (start.sh and Makefile add it to PATH).
+Every setting must be documented in `.env.example`; `tests/test_config.py` enforces this.
 
 Frontend note: this is Next.js 16 with Cache Components enabled. Read `frontend/node_modules/next/dist/docs/`
 before using framework APIs; route params must be resolved inside `<Suspense>` (see `app/jobs/[id]/page.tsx`).
@@ -71,8 +74,11 @@ pdfjs-dist is v6 (no `isEvalSupported`, `destroy()` lives on the loading task).
 - **Comments in `/Contents`** of the highlight (universally supported) rather than separate sticky notes.
 - **SQLite + lease-based worker** for local durability; same semantics port to Postgres + queue later.
 - **Direct browser-to-API calls with CORS** (not Next rewrites) to avoid proxy body limits on 50 MB uploads.
-- **System font stack** (Segoe UI on Windows) so the UI needs no network fonts.
+- **System font stack** (Inter, Noto Sans, Ubuntu, Cantarell, ...) so the UI needs no network fonts.
 - **Default model `claude-opus-5-5`**, configurable; analysis effort `high`, summary `medium`.
+- **AI providers behind one interface** (`StructuredClient` in `ai/client.py`, chosen by
+  `ANNOTATOR_AI_PROVIDER`). Local models are a future, optional provider; GPU use must stay optional.
+- **Linux-first tooling**: `install.sh`/`start.sh`; Node.js is downloaded locally when the distro's is too old.
 
 ## Testing expectations
 

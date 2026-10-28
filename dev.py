@@ -152,7 +152,7 @@ def main() -> None:
         web_env.setdefault("NEXT_PUBLIC_API_URL", f"http://127.0.0.1:{args.api_port}")
 
     if args.prod and not args.no_web:
-        print("Building the website (takes about a minute the first time)...")
+        print("Building the website (usually well under a minute)...")
         build = subprocess.run(["npm", "run", "build"], cwd=FRONTEND, env=web_env)
         if build.returncode != 0:
             fail("The website build failed. See the output above.")

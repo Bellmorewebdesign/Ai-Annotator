@@ -3,14 +3,15 @@
 ## How to run
 
 ```bash
-cd backend && .venv/bin/python -m pytest -rs        # Windows: .venv\Scripts\python -m pytest -rs
-cd frontend && npm run lint && npm run typecheck && npm run build
+make test                                            # backend suite
+make lint                                            # ruff, eslint, TypeScript
+cd frontend && npm run build
 cd frontend && npm run e2e -- <document.pdf>        # needs the stack running in test mode (see README)
 ```
 
-CI (`.github/workflows/ci.yml`) runs the backend suite on Ubuntu (with Tesseract and LibreOffice) and on
-Windows (OCR/LibreOffice tests skip themselves), the frontend lint/typecheck/build, and the browser
-end-to-end test.
+CI (`.github/workflows/ci.yml`) runs on Ubuntu: the backend suite on Python 3.11 and 3.12 (with Tesseract
+and LibreOffice), the frontend lint/typecheck/build, and an end-to-end job that runs `./install.sh --yes`
+and `./start.sh --prod` on a fresh machine, then the browser test.
 
 ## Principles
 
@@ -40,17 +41,30 @@ Environment: Linux, Python 3.13, Tesseract 5.3.4, LibreOffice 24.2, Node 22, Chr
 
 ### Continuous integration
 
-GitHub Actions run 4 (commit `e0e8a93`) passed all four jobs: backend tests on Ubuntu (Tesseract and
-LibreOffice installed, nothing skipped), backend tests on Windows (OCR and LibreOffice tests skipped
-because those tools are not installed on the runner), frontend lint/typecheck/build, and the browser
-end-to-end test against a production build.
+GitHub Actions run 4 (commit `e0e8a93`) passed backend tests on Ubuntu (Tesseract and LibreOffice
+installed, nothing skipped), frontend lint/typecheck/build and the browser end-to-end test. (That run also
+included a Windows job, since removed because the project targets Linux.)
 
 The first CI runs were valuable: different fonts on the runners exposed a real reading-order bug (the
 short second line of a wrapped full-width title was filed into the left column), now fixed and covered by
 a test whose title always wraps. They also showed that PDFium substitutes different system fonts for
-non-embedded Times on Windows, so glyph-box edges can differ by about 1 pt between platforms; accuracy
+non-embedded standard fonts on different systems, so glyph-box edges can differ by about 1 pt; accuracy
 tests therefore assert "covers the target words and does not reach the neighbouring words" rather than a
 fixed edge tolerance.
+
+### Linux setup verification (Ubuntu 24.04)
+
+On a fresh `git clone`:
+
+- `./install.sh --yes` installed system packages, created the venv, installed Python and website
+  packages, created `.env` (mode 600) and found Tesseract and LibreOffice.
+- With no Node.js on `PATH`, `./install.sh` downloaded Node.js 22.22.0 into `.tools/node`; the SHA-256
+  checksum check passed and everything else used that copy.
+- `./start.sh --prod` (test mode) built and served the website; the browser end-to-end test passed.
+- `./start.sh --lan`: the website answered on the machine's network address, the API returned the matching
+  CORS header, and the browser end-to-end test passed when run through the network address (the browser
+  found the API without a configured URL).
+- Stopping with SIGTERM/Ctrl+C left no API, worker or website processes behind.
 
 Performance: a 50-page two-column document is extracted in ~1.6 s, indexed in 0.2 s, and 150 annotations
 are matched, rendered and verified in ~1 s. The prompt for such a document is ~34k tokens (single AI pass).
@@ -99,6 +113,8 @@ are matched, rendered and verified in ~1 s. The prompt for such a document is ~3
    appearance streams, which those viewers support.
 5. **Vector figures** (charts drawn with paths) use clustering heuristics with medium confidence; only
    embedded images have high confidence. Unreliable regions fall back to highlighting the caption.
-6. **Windows.** The code is written for Windows (paths, process handling, tool detection) and CI runs the
-   backend suite on Windows, but `dev.py` and `scripts/setup.py` have not been run by hand on Windows yet.
+6. **Linux distributions.** The install and start path was verified by hand on Ubuntu 24.04 (see
+   below) and runs in CI on a fresh Ubuntu runner. The `dnf`, `pacman` and `zypper` branches of
+   `install.sh` use the standard package names but have not been run. Windows and macOS are not
+   supported targets.
 7. **Right-to-left and vertical scripts** are not handled specially.
