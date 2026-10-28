@@ -181,4 +181,5 @@ def write_annotations(src: Path, dst: Path, specs: list[AnnotationSpec]) -> None
                 builder = _BUILDERS[spec.kind]
                 annot = pdf.make_indirect(builder(pdf, spec, page_obj, now))
                 page_obj.Annots.append(annot)
-        pdf.save(dst)
+        # Keep original stream encodings: page content is copied byte for byte.
+        pdf.save(dst, stream_decode_level=pikepdf.StreamDecodeLevel.none)

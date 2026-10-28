@@ -77,6 +77,8 @@ def extract_page_chars(page: pdfium.PdfPage, index: int) -> PageLayout:
                 elif text in ("\r", "\n"):
                     pending_space = True
                 continue
+            if text == "\x02":
+                text = "-"  # PDFium reports a hyphen at the end of a line as U+0002
             if not text or text in _SKIP_TEXT:
                 continue
             if text in _SPACE_TEXT or text.isspace():
@@ -107,6 +109,8 @@ def extract_page_chars(page: pdfium.PdfPage, index: int) -> PageLayout:
     finally:
         textpage.close()
 
+    _split_ligature_boxes(provisional)
+
     # Orientation groups: the dominant direction first so its text reads first.
     counts = Counter(theta for _, theta, _, _ in provisional)
     order = [t for t, _ in counts.most_common()] or [0]
@@ -135,6 +139,40 @@ def extract_page_chars(page: pdfium.PdfPage, index: int) -> PageLayout:
     return layout
 
 
+def _split_ligature_boxes(items: list[tuple[Char, int, float, float]]) -> None:
+    """PDFium expands a ligature glyph (e.g. "fi") into several chars sharing one box.
+
+    Divide that box evenly along the text direction so each component has its own
+    position; otherwise the components look like overlapping glyphs.
+    """
+    i = 0
+    n = len(items)
+    while i < n:
+        c0, theta, _, _ = items[i]
+        j = i + 1
+        while j < n:
+            cj = items[j][0]
+            if (items[j][1] == theta and abs(cj.ux0 - c0.ux0) < 0.01 and abs(cj.ux1 - c0.ux1) < 0.01
+                    and abs(cj.uy0 - c0.uy0) < 0.01 and abs(cj.uy1 - c0.uy1) < 0.01 and cj.text != c0.text):
+                j += 1
+            else:
+                break
+        k = j - i
+        if k > 1:
+            x0, y0, x1, y1 = c0.ux0, c0.uy0, c0.ux1, c0.uy1  # shared box, before any splitting
+            for m in range(k):
+                c = items[i + m][0]
+                if theta in (0, 180):
+                    w = (x1 - x0) / k
+                    pos = m if theta == 0 else k - 1 - m
+                    c.ux0, c.ux1 = x0 + pos * w, x0 + (pos + 1) * w
+                else:
+                    h = (y1 - y0) / k
+                    pos = m if theta == 90 else k - 1 - m
+                    c.uy0, c.uy1 = y0 + pos * h, y0 + (pos + 1) * h
+        i = j
+
+
 def _drop_duplicate_glyphs(chars: list[Char]) -> list[Char]:
     """Remove glyphs drawn twice at (almost) the same spot, e.g. simulated bold."""
     out: list[Char] = []
@@ -160,8 +198,8 @@ def _image_coverage(page: pdfium.PdfPage, crop: tuple[float, float, float, float
     covered = 0.0
     try:
         for obj in page.get_objects(filter=[pdfium_c.FPDF_PAGEOBJ_IMAGE], max_depth=3):
-            l, b, r, t = obj.get_bounds()
-            w = max(0.0, min(r, crop[2]) - max(l, crop[0]))
+            left, b, r, t = obj.get_bounds()
+            w = max(0.0, min(r, crop[2]) - max(left, crop[0]))
             h = max(0.0, min(t, crop[3]) - max(b, crop[1]))
             covered = max(covered, w * h)
     except Exception:  # pragma: no cover - defensive against odd page objects

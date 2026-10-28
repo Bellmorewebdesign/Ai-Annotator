@@ -15,8 +15,8 @@
                                               +-- Engine: match -> geometry -> render -> verify
 ```
 
-Three processes run locally: the Next.js dev server, the FastAPI API and the worker. `python dev.py`
-starts all three. The API never does heavy work inside a request; the worker owns the pipeline, so
+Three processes run on one Linux machine: the Next.js website, the FastAPI API and the worker.
+`./start.sh` (a wrapper around `dev.py`) starts all three. The API never does heavy work inside a request; the worker owns the pipeline, so
 closing the browser tab has no effect on processing.
 
 ## Pipeline (worker)
@@ -130,17 +130,19 @@ SQLite (WAL mode) via the standard library. Job ids are 128-bit random URL-safe 
 stored under fixed internal names (`input/source.<ext>`), so user-supplied filenames never touch the
 filesystem; the sanitized original name is kept only for display.
 
-Key endpoints:
+Client-side, the browser checks type and size and counts PDF pages with pdf.js before uploading;
+the server repeats every check on the actual bytes.
+
+Key endpoints (OpenAPI docs at `/api/docs`):
 
 | Method | Path | Purpose |
 |---|---|---|
 | GET | `/api/health` | Capabilities (AI configured, OCR, DOCX conversion, limits) |
 | POST | `/api/jobs` | Multipart: `document`, optional `instructions_file`, `instructions`, `options` (JSON) |
 | GET | `/api/jobs/{id}` | Status, phase, progress, ETA, results |
-| GET | `/api/jobs/{id}/files/{kind}` | `annotated`, `summary-md`, `summary-pdf`, `original` |
+| GET | `/api/jobs/{id}/files/{kind}` | `annotated`, `summary-md`, `summary-pdf` (`?inline=true` for preview) |
 | DELETE | `/api/jobs/{id}` | Delete job and all files |
 | POST | `/api/categories/suggest` | Detect categories/colors from instructions and rubric |
-| POST | `/api/documents/inspect` | Validate a file and report type, size, page count |
 
 ### Scaling path
 
@@ -148,6 +150,45 @@ The storage layer (`storage.py`) and job store are small interfaces. Moving to c
 storage for `data/jobs`, Postgres for jobs (same lease semantics), workers on a queue, and direct-to-
 bucket presigned uploads for very large files. The API's upload handler already streams to disk in
 chunks and enforces limits while streaming.
+
+## Running on Linux
+
+- **Install**: `install.sh` installs system packages (Tesseract, LibreOffice, Python venv support) with the
+  distribution's package manager, uses the system Node.js if it is 20.9+ or downloads the official Node.js
+  LTS into `.tools/node` (SHA-256 verified), then creates `backend/.venv` and installs all packages.
+  Python dependencies are manylinux wheels (PDFium, qpdf and Pillow are bundled), so no compilers or
+  system PDF libraries are needed.
+- **Run**: `start.sh` launches API, worker and website in their own process groups and stops them
+  together; SIGINT/SIGTERM let the worker return its job to the queue. `--prod` serves a production build.
+  `--lan` binds to all interfaces, adds the machine's network addresses to the CORS allow-list, and the
+  website then derives the API address from the host it was opened with (`NEXT_PUBLIC_API_URL` unset).
+- **Data**: everything lives under `ANNOTATOR_DATA_DIR` (default `./data`): the SQLite database and one
+  directory per job. Back up or move that directory to keep results.
+- **Resources** (measured on a 4-core VM): CPU-only. A 50-page two-column document takes about 3 s for
+  extraction, matching, rendering and verification, with a peak of about 150 MB of memory. Tesseract took
+  about 0.6 s for a light synthetic scanned page; dense real scans take longer. The website production
+  build peaked at about 370 MB. AI calls dominate total job time.
+
+## Local AI and GPUs (future)
+
+Today all AI work goes to the Anthropic API, and nothing uses a GPU. The design keeps local components
+possible without making them mandatory:
+
+- **One interface for AI providers.** The pipeline only talks to `StructuredClient.structured(...)`
+  (prompt blocks plus a JSON schema in, validated JSON plus a usage record out). `make_client` chooses the
+  implementation from `ANNOTATOR_AI_PROVIDER`; unknown values are rejected with a clear error. A local
+  provider (for example an OpenAI-compatible server such as vLLM or llama.cpp serving an open model)
+  would be a new class behind the same interface, enforcing the same schema and reporting the same usage.
+- **Reasoning stays separated from rendering**, so a local model can never affect placement accuracy:
+  it only proposes passage ids and quotes, which the deterministic engine matches or rejects.
+- **Most promising local components**, in order of expected value on hardware like an RTX 3080 (10 to
+  12 GB VRAM) or RTX 2060 Super (8 GB VRAM):
+  1. GPU OCR / layout models for scanned pages (better accuracy than Tesseract on difficult scans).
+  2. A local model for cheap auxiliary calls (category detection), with Claude kept for analysis.
+  3. Full local analysis only if an evaluation shows quality close to the Claude baseline; models that
+     fit in 8 to 12 GB are much smaller than Claude, so this needs measurement before any switch.
+- **Rules for adding them**: optional extras (`requirements-gpu.txt`), auto-detected at runtime with CPU
+  fallback, reported in `/api/health`, and evaluated on the same test corpus as the Claude provider.
 
 ## Licensing
 
