@@ -57,12 +57,16 @@ def main() -> None:
     else:
         print(".env already exists (left unchanged).")
 
-    sys.path.insert(0, str(BACKEND))
-    from annotator.engine.convert import find_soffice  # noqa: E402
-    from annotator.engine.ocr import find_tesseract  # noqa: E402
-
-    tess = find_tesseract(os.environ.get("ANNOTATOR_TESSERACT_CMD"))
-    soffice = find_soffice(os.environ.get("ANNOTATOR_SOFFICE_CMD"))
+    # Ask the project's own environment (the system Python lacks the backend's packages).
+    probe = (
+        "import os\n"
+        "from annotator.engine.convert import find_soffice\n"
+        "from annotator.engine.ocr import find_tesseract\n"
+        "print(find_tesseract(os.environ.get('ANNOTATOR_TESSERACT_CMD')) or '')\n"
+        "print(find_soffice(os.environ.get('ANNOTATOR_SOFFICE_CMD')) or '')\n"
+    )
+    found = subprocess.run([str(py), "-c", probe], cwd=BACKEND, capture_output=True, text=True, check=True)
+    tess, soffice = (found.stdout.splitlines() + ["", ""])[:2]
     print("\nOptional tools:")
     print(f"  Tesseract OCR (scanned PDFs, images):    {tess or 'NOT FOUND'}")
     print(f"  LibreOffice (Word files, original layout): {soffice or 'NOT FOUND'}")
