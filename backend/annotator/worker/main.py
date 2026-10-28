@@ -112,8 +112,8 @@ class Worker:
 
 
 def main() -> None:
-    configure_logging()
     settings = get_settings()
+    configure_logging(settings.log_level)
     worker = Worker(settings)
 
     def handle(signum, frame):  # pragma: no cover - signal handling

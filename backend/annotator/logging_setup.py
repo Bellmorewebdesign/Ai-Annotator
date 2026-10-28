@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 import logging
-import os
 
 
-def configure_logging() -> None:
-    level = os.environ.get("ANNOTATOR_LOG_LEVEL", "INFO").upper()
+def configure_logging(level: str = "INFO") -> None:
+    level = (level or "INFO").upper()
     logging.basicConfig(level=level, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     # The HTTP clients log request URLs at INFO; keep them quiet.
     for noisy in ("httpx", "httpx2", "anthropic", "pikepdf"):

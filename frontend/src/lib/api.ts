@@ -1,6 +1,17 @@
 // Typed client for the AI Annotator backend (FastAPI).
 
-export const API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000").replace(/\/$/, "");
+/**
+ * Where the browser reaches the backend. NEXT_PUBLIC_API_URL wins when set (start.sh sets it for local
+ * use); otherwise the API is assumed to run on the same host the website was opened from, which makes
+ * `./start.sh --lan` work from other computers without rebuilding.
+ */
+export function apiBase(): string {
+  const configured = process.env.NEXT_PUBLIC_API_URL;
+  if (configured) return configured.replace(/\/$/, "");
+  const port = process.env.NEXT_PUBLIC_API_PORT ?? "8000";
+  if (typeof window !== "undefined") return `${window.location.protocol}//${window.location.hostname}:${port}`;
+  return `http://localhost:${port}`;
+}
 
 export type Density = "light" | "balanced" | "detailed";
 
@@ -151,7 +162,7 @@ async function parse<T>(res: Response): Promise<T> {
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let res: Response;
   try {
-    res = await fetch(`${API_BASE}${path}`, { cache: "no-store", ...init });
+    res = await fetch(`${apiBase()}${path}`, { cache: "no-store", ...init });
   } catch {
     throw new ApiError(OFFLINE_MESSAGE, 0, "offline");
   }
@@ -164,7 +175,7 @@ export const deleteJob = (id: string) =>
   request<{ deleted: boolean }>(`/api/jobs/${encodeURIComponent(id)}`, { method: "DELETE" });
 
 export function fileUrl(path: string, inline = false): string {
-  return `${API_BASE}${path}${inline ? "?inline=true" : ""}`;
+  return `${apiBase()}${path}${inline ? "?inline=true" : ""}`;
 }
 
 export async function suggestCategories(instructions: string, file: File | null): Promise<CategorySuggestion> {
@@ -198,7 +209,7 @@ export function createJob(input: CreateJobInput, onProgress?: (fraction: number)
 
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
-    xhr.open("POST", `${API_BASE}/api/jobs`);
+    xhr.open("POST", `${apiBase()}/api/jobs`);
     xhr.responseType = "json";
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable && onProgress) onProgress(e.loaded / e.total);

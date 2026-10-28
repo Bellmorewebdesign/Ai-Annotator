@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     anthropic_api_key: str | None = Field(None, alias="ANTHROPIC_API_KEY")
     # "anthropic" for real use. "fake" is a scripted provider that is only honoured when
     # ANNOTATOR_ENV=test, so the UI can never silently present scripted output as real.
+    # Future local model servers plug in here (see docs/architecture.md, "Local AI").
     ai_provider: str = Field("anthropic", alias="ANNOTATOR_AI_PROVIDER")
     model: str = Field("claude-opus-5-5", alias="ANNOTATOR_MODEL")
     # Model used for short auxiliary calls (category detection from instructions).
@@ -72,6 +73,8 @@ class Settings(BaseSettings):
     ocr_language: str = Field("eng", alias="ANNOTATOR_OCR_LANGUAGE")
     soffice_cmd: str | None = Field(None, alias="ANNOTATOR_SOFFICE_CMD")
 
+    log_level: str = Field("INFO", alias="ANNOTATOR_LOG_LEVEL")
+
     # --- API ------------------------------------------------------------------------------
     cors_origins: str = Field(
         "http://localhost:3000,http://127.0.0.1:3000", alias="ANNOTATOR_CORS_ORIGINS"
@@ -99,7 +102,11 @@ class Settings(BaseSettings):
 
     @property
     def ai_configured(self) -> bool:
-        return self.fake_ai_enabled or bool(self.anthropic_api_key)
+        if self.ai_provider == "fake":
+            return self.fake_ai_enabled
+        if self.ai_provider == "anthropic":
+            return bool(self.anthropic_api_key)
+        return False
 
     @property
     def cors_origin_list(self) -> list[str]:

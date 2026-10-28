@@ -103,7 +103,7 @@ def _pdf_pages(path: Path) -> int:
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or get_settings()
-    configure_logging()
+    configure_logging(settings.log_level)
     store = JobStore(settings.db_path)
     settings.jobs_dir.mkdir(parents=True, exist_ok=True)
 

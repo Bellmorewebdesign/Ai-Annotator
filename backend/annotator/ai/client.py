@@ -194,9 +194,22 @@ def _retry_after(exc: anthropic.APIStatusError) -> float | None:
         return None
 
 
+SUPPORTED_PROVIDERS = ("anthropic", "fake")
+
+
 def make_client(settings: Settings) -> StructuredClient:
-    if settings.fake_ai_enabled:
+    """Return the AI client for ANNOTATOR_AI_PROVIDER.
+
+    Every provider implements :class:`StructuredClient` (schema-constrained JSON in, usage record
+    out), so a future local model server can be added here without touching the pipeline.
+    """
+    provider = settings.ai_provider
+    if provider == "fake":
+        if not settings.fake_ai_enabled:
+            raise AIConfigError("The scripted test AI can only be used with ANNOTATOR_ENV=test.", "ai_provider")
         from .fake import FakeClaude
 
         return FakeClaude()
-    return ClaudeClient(settings)
+    if provider == "anthropic":
+        return ClaudeClient(settings)
+    raise AIConfigError(f"Unknown AI provider '{provider}'. Supported: anthropic.", "ai_provider")
